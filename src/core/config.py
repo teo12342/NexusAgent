@@ -1,5 +1,5 @@
 """
-nexus_agent Agent Config — src/core/config.py
+Nexus Agent — src/core/config.py
 Loads and validates config.yaml
 """
 
@@ -7,133 +7,98 @@ import os
 import yaml
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
+
+
+def load_config(config_path: str = None) -> "NexusAgentConfig":
+    """Load configuration from YAML file."""
+    if config_path is None:
+        config_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "config.yaml"
+        )
+
+    cfg = NexusAgentConfig()
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            data = yaml.safe_load(f)
+        return NexusAgentConfig(**data)
+    return cfg
+
+
+def get_config() -> "NexusAgentConfig":
+    """Get the global config instance."""
+    global _config
+    if _config is None:
+        _config = load_config()
+    return _config
 
 
 class ModelConfig(BaseModel):
-    provider: str
-    model: str
-    api_key_env: Optional[str] = None
-    base_url: Optional[str] = None
+    provider: str = "minimax"
+    model: str = "MiniMax-M2.7"
     max_tokens: int = 131072
-    context_window: int = 204800
+    temperature: float = 0.7
+    api_key: Optional[str] = None
 
 
 class ModelsConfig(BaseModel):
-    primary: ModelConfig
-    local: Optional[ModelConfig] = None
-    fallback_order: List[str] = Field(default_factory=list)
+    primary: ModelConfig = ModelConfig()
+    fallback: Optional[ModelConfig] = None
 
 
 class MemoryConfig(BaseModel):
-    vector_db: str = "chroma"
-    persist_dir: str = "data/memory"
-    embedding_model: str = "nomic-embed-text"
-    max_memories: int = 10000
-    forget_threshold: float = 0.1
-    session_context_lines: int = 50
+    vector_db_path: str = "data/memory/vector_db"
+    graph_db_path: str = "data/memory/graph_db"
+    auto_learn: bool = True
+    max_entries: int = 10000
 
 
 class DeviceConfig(BaseModel):
-    check_interval: int = 5
-    log_processes: bool = True
-    watch_startup: bool = True
+    check_interval_ms: int = 5000
+    enable_registry: bool = True
+    enable_services: bool = True
 
 
 class VisionConfig(BaseModel):
-    capture_method: str = "pillow"
-    default_region: str = "fullscreen"
-    click_detection: bool = True
+    capture_backend: str = "mss"
+    default_model: Optional[str] = None
+    screenshot_path: str = "data/screenshots"
 
 
 class VoiceConfig(BaseModel):
-    stt_provider: str = "faster_whisper"
-    stt_model: str = "base"
     tts_provider: str = "elevenlabs"
-    tts_voice: str = ""
-    audio_format: str = "mp3"
-
-
-class TelegramConfig(BaseModel):
-    enabled: bool = True
-    bot_token_env: str = "TELEGRAM_BOT_TOKEN"
-    owner_id: int = 0
-    streaming: bool = True
+    stt_provider: str = "whisper"
+    api_key: Optional[str] = None
 
 
 class DashboardConfig(BaseModel):
     port: int = 18790
     host: str = "127.0.0.1"
-    password: str = "nexus_agent Agent"
-    ssl: bool = False
+    password: Optional[str] = None
 
 
 class WatchdogConfig(BaseModel):
     enabled: bool = True
-    check_interval: int = 30
-    restart_on_crash: bool = True
-    max_restart_attempts: int = 3
+    check_interval_ms: int = 30000
+    auto_restart: bool = True
 
 
-class ToolsConfig(BaseModel):
-    timeout_default: int = 30
-    timeout_max: int = 300
-    retry_attempts: int = 2
-    retry_delay: int = 2
+class NexusAgentConfig(BaseModel):
+    name: str = "Nexus Agent"
+    version: str = "0.1.0"
+    models: ModelsConfig = ModelsConfig()
+    memory: MemoryConfig = MemoryConfig()
+    device: DeviceConfig = DeviceConfig()
+    vision: VisionConfig = VisionConfig()
+    voice: VoiceConfig = VoiceConfig()
+    dashboard: DashboardConfig = DashboardConfig()
+    watchdog: WatchdogConfig = WatchdogConfig()
+
+    def get_model_api_key(self, model_name: str = None) -> Optional[str]:
+        if self.models.primary and self.models.primary.api_key:
+            return self.models.primary.api_key
+        return os.environ.get("MINIMAX_API_KEY")
 
 
-class nexus_agent AgentConfig(BaseModel):
-    nexus_agent Agent: Dict = Field(default_factory=lambda: {"name": "nexus_agent Agent", "owner": "Teo", "log_level": "INFO", "version": "0.1.0"})
-    models: Optional[ModelsConfig] = None
-    memory: Optional[MemoryConfig] = None
-    device: Optional[DeviceConfig] = None
-    vision: Optional[VisionConfig] = None
-    voice: Optional[VoiceConfig] = None
-    telegram: Optional[TelegramConfig] = None
-    dashboard: Optional[DashboardConfig] = None
-    watchdog: Optional[WatchdogConfig] = None
-    tools: Optional[ToolsConfig] = None
-
-    def get_model_api_key(self, model_cfg: ModelConfig) -> str:
-        if model_cfg.api_key_env:
-            return os.environ.get(model_cfg.api_key_env, "")
-        return ""
-
-
-_global_config: Optional[nexus_agent AgentConfig] = None
-
-
-def load_config(config_path: str = "config.yaml") -> nexus_agent AgentConfig:
-    global _global_config
-    if _global_config is not None:
-        return _global_config
-
-    p = Path(config_path)
-    if not p.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-
-    with open(p, "r") as f:
-        raw = yaml.safe_load(f)
-
-    # Parse subsections with pydantic
-    data = raw or {}
-    config = nexus_agent AgentConfig(
-        nexus_agent Agent=data.get("nexus_agent Agent", {"name": "nexus_agent Agent", "owner": "Teo"}),
-        models=ModelsConfig(**data["models"]) if "models" in data else None,
-        memory=MemoryConfig(**data["memory"]) if "memory" in data else None,
-        device=DeviceConfig(**data["device"]) if "device" in data else None,
-        vision=VisionConfig(**data["vision"]) if "vision" in data else None,
-        voice=VoiceConfig(**data["voice"]) if "voice" in data else None,
-        telegram=TelegramConfig(**data["telegram"]) if "telegram" in data else None,
-        dashboard=DashboardConfig(**data["dashboard"]) if "dashboard" in data else None,
-        watchdog=WatchdogConfig(**data["watchdog"]) if "watchdog" in data else None,
-        tools=ToolsConfig(**data["tools"]) if "tools" in data else None,
-    )
-    _global_config = config
-    return config
-
-
-def get_config() -> nexus_agent AgentConfig:
-    if _global_config is None:
-        return load_config()
-    return _global_config
+_config: Optional[NexusAgentConfig] = None
