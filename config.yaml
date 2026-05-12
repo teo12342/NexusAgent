@@ -1,0 +1,75 @@
+nexus_agent Agent:
+  name: "nexus_agent Agent"
+  owner: "Teo"
+  log_level: "INFO"
+  version: "0.1.0"
+
+models:
+  primary:
+    provider: "minimax"
+    model: "MiniMax-M2.7"
+    api_key_env: "MINIMAX_API_KEY"
+    base_url: "https://api.minimax.io/anthropic"
+    max_tokens: 131072
+    context_window: 204800
+  local:
+    provider: "ollama"
+    base_url: "http://127.0.0.1:11434/v1"
+    models:
+      - "llava"
+      - "qwen2-vl"
+      - "moondream2"
+      - "qwen2.5-coder:7b"
+    fallback_order:
+      - "qwen2.5-coder:7b"
+      - "llava"
+      - "moondream2"
+
+memory:
+  vector_db: "chroma"
+  persist_dir: "data/memory"
+  embedding_model: "nomic-embed-text"
+  max_memories: 10000
+  forget_threshold: 0.1
+  session_context_lines: 50
+
+device:
+  check_interval: 5
+  log_processes: true
+  watch_startup: true
+
+vision:
+  capture_method: "pillow"
+  default_region: "fullscreen"
+  click_detection: true
+
+voice:
+  stt_provider: "faster_whisper"
+  stt_model: "base"
+  tts_provider: "elevenlabs"
+  tts_voice: "EXAVITQu4vr4xnSDxMaL"  # default voice - change to Teo's voice
+  audio_format: "mp3"
+
+telegram:
+  enabled: true
+  bot_token_env: "TELEGRAM_BOT_TOKEN"
+  owner_id: 8788969906
+  streaming: true
+
+dashboard:
+  port: 18790
+  host: "127.0.0.1"
+  password: "nexus_agent Agent"
+  ssl: false
+
+watchdog:
+  enabled: true
+  check_interval: 30
+  restart_on_crash: true
+  max_restart_attempts: 3
+
+tools:
+  timeout_default: 30
+  timeout_max: 300
+  retry_attempts: 2
+  retry_delay: 2

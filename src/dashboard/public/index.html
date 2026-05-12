@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus Agent_agent Agent Dashboard</title>
+  <style>
+    :root {
+      --bg: #08080c;
+      --surface: #111118;
+      --surface2: #16161e;
+      --border: #1e1e2a;
+      --accent: #ff4f40;
+      --accent2: #ff7849;
+      --text: #e8e8f0;
+      --muted: #6b6b80;
+      --purple: #8b5cf6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: rgba(8,8,12,0.92);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      height: 52px;
+      gap: 1.5rem;
+    }
+    nav .logo {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+    }
+    nav .logo span { color: var(--text); }
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 5px;
+      transition: color 0.2s, background 0.2s;
+    }
+    nav a:hover, nav a.active { color: var(--accent); background: rgba(255,79,64,0.07); }
+
+    .main { padding-top: 52px; }
+
+    .panel {
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem;
+    }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .panel-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    /* ---- GRID LAYOUT ---- */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      min-height: calc(100vh - 52px);
+    }
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1rem 0;
+      position: sticky;
+      top: 52px;
+      height: calc(100vh - 52px);
+      overflow-y: auto;
+    }
+    .sidebar-section { margin-bottom: 1rem; }
+    .sidebar-label {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0.5rem 1rem;
+    }
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0.6rem 1rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.2s, background 0.2s;
+      border-left: 2px solid transparent;
+    }
+    .sidebar-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+    .sidebar-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(255,79,64,0.05); }
+    .sidebar-item .icon { font-size: 1rem; }
+    .sidebar-item .badge {
+      margin-left: auto;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+
+    .content { padding: 2rem; }
+
+    /* ---- STAT CARDS ---- */
+    .stat-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+    .stat-card .val {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .stat-card .lbl {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    /* ---- LIVE STATS ---- */
+    .live-stat { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+    .live-stat:last-child { border-bottom: none; }
+    .live-stat .name { font-size: 0.8rem; color: var(--muted); }
+    .live-stat .value { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+    .live-stat .value.good { color: #22c55e; }
+    .live-stat .value.warn { color: var(--accent); }
+
+    /* ---- PROCESS LIST ---- */
+    .process-list { max-height: 400px; overflow-y: auto; }
+    .process-row {
+      display: grid;
+      grid-template-columns: 50px 1fr 80px 80px 60px;
+      gap: 0.5rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      align-items: center;
+      font-size: 0.78rem;
+    }
+    .process-row.header { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); border-bottom: 1px solid var(--border); }
+    .process-row .pid { color: var(--muted); }
+    .process-row .name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .process-row .cpu { color: var(--accent); text-align: right; }
+    .process-row .mem { color: var(--purple); text-align: right; }
+    .process-row .mem.warn { color: var(--accent); }
+
+    /* ---- MEMORY SECTION ---- */
+    .memory-search { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .memory-search input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .memory-search input:focus { outline: none; border-color: var(--accent); }
+    .memory-search button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .memory-result {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .memory-result .score {
+      font-size: 0.65rem;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .memory-result .content { font-size: 0.82rem; color: var(--text); }
+    .memory-result .meta { font-size: 0.7rem; color: var(--muted); margin-top: 0.5rem; }
+
+    /* ---- AGENT CHAT ---- */
+    .chat-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      height: 400px;
+    }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 1rem; }
+    .chat-msg { margin-bottom: 1rem; }
+    .chat-msg .role { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.25rem; }
+    .chat-msg.user .role { color: var(--accent); }
+    .chat-msg.assistant .role { color: var(--purple); }
+    .chat-msg .text { font-size: 0.82rem; color: var(--text); line-height: 1.6; }
+    .chat-input-area {
+      display: flex;
+      gap: 0.5rem;
+      padding: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .chat-input-area input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .chat-input-area input:focus { outline: none; border-color: var(--accent); }
+    .chat-input-area button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* ---- TOOL OUTPUT ---- */
+    .tool-output {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      font-size: 0.75rem;
+      max-height: 300px;
+      overflow: auto;
+      white-space: pre-wrap;
+      color: #a0a0b0;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .tool-section { display: none; }
+    .tool-section.active { display: block; }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      display: inline-block;
+    }
+
+    @media (max-width: 700px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">Nexus Agent_agent Agent<span>.</span></span>
+  <a href="#" class="active" data-section="overview">Overview</a>
+  <a href="#" data-section="processes">Processes</a>
+  <a href="#" data-section="memory">Memory</a>
+  <a href="#" data-section="agent">Agent</a>
+  <a href="#" data-section="tools">Tools</a>
+  <span class="status-dot" style="margin-left: auto;" title="Running"></span>
+</nav>
+
+<div class="main">
+<div class="dashboard-grid">
+
+<div class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-label">System</div>
+    <div class="sidebar-item active" data-section="overview">
+      <span class="icon">📊</span> Overview
+    </div>
+    <div class="sidebar-item" data-section="processes">
+      <span class="icon">⚙️</span> Processes
+    </div>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Intelligence</div>
+    <div class="sidebar-item" data-section="memory">
+      <span class="icon">🧠</span> Memory
+    </div>
+    <div class="sidebar-item" data-section="agent">
+      <span class="icon">🤖</span> Agent
+    </div>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Execution</div>
+    <div class="sidebar-item" data-section="tools">
+      <span class="icon">🔧</span> Tools
+    </div>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- === OVERVIEW === -->
+<div class="tool-section active" id="section-overview">
+  <div class="panel-header">
+    <span class="panel-title">01 · System Overview</span>
+    <span id="uptime" style="font-size:0.75rem;color:var(--muted)">—</span>
+  </div>
+  <div class="stat-cards" id="stat-cards">
+    <div class="stat-card"><div class="val" id="stat-cpu">—</div><div class="lbl">CPU %</div></div>
+    <div class="stat-card"><div class="val" id="stat-mem">—</div><div class="lbl">RAM %</div></div>
+    <div class="stat-card"><div class="val" id="stat-disk">—</div><div class="lbl">Disk %</div></div>
+    <div class="stat-card"><div class="val" id="stat-sessions">0</div><div class="lbl">Sessions</div></div>
+    <div class="stat-card"><div class="val" id="stat-memory">0</div><div class="lbl">Memories</div></div>
+    <div class="stat-card"><div class="val" id="stat-tools">0</div><div class="lbl">Tools</div></div>
+  </div>
+
+  <div class="panel" style="padding-top:0;border-top:none">
+    <div class="panel-header"><span class="panel-title">02 · Live Stats</span></div>
+    <div id="live-stats"></div>
+  </div>
+</div>
+
+<!-- === PROCESSES === -->
+<div class="tool-section" id="section-processes">
+  <div class="panel-header">
+    <span class="panel-title">Processes</span>
+    <div style="display:flex;gap:0.5rem;align-items:center">
+      <select id="proc-sort" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:0.75rem;color:var(--text);font-family:'JetBrains Mono',monospace">
+        <option value="cpu">CPU</option><option value="memory">Memory</option><option value="name">Name</option>
+      </select>
+      <button onclick="loadProcesses()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:0.75rem;cursor:pointer">Refresh</button>
+    </div>
+  </div>
+  <div class="process-list" id="process-list">
+    <div class="process-row header">
+      <span>PID</span><span>Name</span><span style="text-align:right">CPU%</span><span style="text-align:right">RAM%</span><span></span>
+    </div>
+  </div>
+</div>
+
+<!-- === MEMORY === -->
+<div class="tool-section" id="section-memory">
+  <div class="panel-header">
+    <span class="panel-title">Memory</span>
+    <span id="memory-count" style="font-size:0.75rem;color:var(--muted)">—</span>
+  </div>
+  <div class="memory-search">
+    <input type="text" id="mem-query" placeholder="Search memory... e.g. 'CashVerse project' or 'Teo prefers'">
+    <button onclick="searchMemory()">Search</button>
+  </div>
+  <div id="memory-results"></div>
+</div>
+
+<!-- === AGENT === -->
+<div class="tool-section" id="section-agent">
+  <div class="panel-header">
+    <span class="panel-title">Agent Chat</span>
+  </div>
+  <div class="chat-container">
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-msg assistant">
+        <div class="role">Nexus Agent_agent Agent</div>
+        <div class="text">Nexus Agent_agent Agent is online. How can I help you today?</div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <input type="text" id="chat-input" placeholder="Ask Nexus Agent_agent Agent anything...">
+      <button onclick="sendChat()">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- === TOOLS === -->
+<div class="tool-section" id="section-tools">
+  <div class="panel-header">
+    <span class="panel-title">Tool Executor</span>
+  </div>
+  <div style="display:flex;gap:0.5rem;margin-bottom:1rem">
+    <select id="tool-select" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:0.82rem;color:var(--text);font-family:'JetBrains Mono',monospace">
+      <option value="">Select a tool...</option>
+    </select>
+    <button onclick="executeTool()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:0.78rem;font-weight:600;cursor:pointer">Execute</button>
+  </div>
+  <pre class="tool-output" id="tool-output">Tool output will appear here...</pre>
+</div>
+
+</div>
+</div>
+</div>
+
+<script>
+const API = "/api";
+
+// ---- NAV ----
+document.querySelectorAll(".sidebar-item, nav a[data-section]").forEach(el => {
+  el.addEventListener("click", (e) => {
+    const sec = el.dataset.section || el.getAttribute("data-section");
+    if (!sec) return;
+    document.querySelectorAll(".tool-section").forEach(s => s.classList.remove("active"));
+    document.querySelectorAll(".sidebar-item").forEach(i => i.classList.remove("active"));
+    document.querySelectorAll("nav a").forEach(a => a.classList.remove("active"));
+    document.getElementById("section-" + sec).classList.add("active");
+    document.querySelectorAll(`.sidebar-item[data-section="${sec}"], nav a[data-section="${sec}"]`).forEach(e => {
+      if (e.classList) e.classList.add("active");
+    });
+  });
+});
+
+// ---- LOAD STATS ----
+async function loadOverview() {
+  const [sys, agent, tools] = await Promise.all([
+    fetch(API + "/system/stats").then(r => r.json()),
+    fetch(API + "/agent/stats").then(r => r.json()),
+    fetch(API + "/tools/list").then(r => r.json()),
+  ]);
+
+  document.getElementById("stat-cpu").textContent = sys.cpu?.overall_percent?.toFixed(1) + "%" || "—";
+  document.getElementById("stat-mem").textContent = sys.memory?.percent?.toFixed(1) + "%" || "—";
+  document.getElementById("stat-disk").textContent = sys.disks?.[0]?.percent?.toFixed(1) + "%" || "—";
+  document.getElementById("stat-sessions").textContent = agent.active_sessions || 0;
+  document.getElementById("stat-memory").textContent = agent.memory_stats?.vector_entries || 0;
+  document.getElementById("stat-tools").textContent = tools.count || 0;
+  document.getElementById("uptime").textContent = "Uptime: " + (sys.uptime || "—");
+
+  const mem = sys.memory || {};
+  const cpu = sys.cpu || {};
+  const net = sys.network || {};
+  const html = `
+    <div class="live-stat"><span class="name">CPU</span><span class="value ${cpu.overall_percent > 80 ? 'warn' : 'good'}">${cpu.overall_percent?.toFixed(1)}%</span></div>
+    <div class="live-stat"><span class="name">RAM Used</span><span class="value ${mem.percent > 80 ? 'warn' : 'good'}">${mem.used_gb}GB / ${mem.total_gb}GB</span></div>
+    <div class="live-stat"><span class="name">Disk</span><span class="value">${sys.disks?.[0]?.used_gb}GB / ${sys.disks?.[0]?.total_gb}GB</span></div>
+    <div class="live-stat"><span class="name">Network</span><span class="value">↑${net.bytes_sent_mb}MB ↓${net.bytes_recv_mb}MB</span></div>
+    <div class="live-stat"><span class="name">Hostname</span><span class="value">${sys.hostname}</span></div>
+    <div class="live-stat"><span class="name">Platform</span><span class="value">${sys.platform?.os} ${sys.platform?.release}</span></div>
+  `;
+  document.getElementById("live-stats").innerHTML = html;
+}
+
+// ---- PROCESSES ----
+async function loadProcesses() {
+  const sort = document.getElementById("proc-sort").value;
+  const procs = await fetch(API + "/processes?sort=" + sort + "&limit=30").then(r => r.json());
+  const html = `
+    <div class="process-row header">
+      <span>PID</span><span>Name</span><span style="text-align:right">CPU%</span><span style="text-align:right">MEM%</span><span></span>
+    </div>
+    ${procs.slice(1).map(p => `
+    <div class="process-row">
+      <span class="pid">${p.pid}</span>
+      <span class="name" title="${p.exe}">${p.name}</span>
+      <span class="cpu">${p.cpu_pct?.toFixed(1)}%</span>
+      <span class="mem ${p.mem_pct > 10 ? 'warn' : ''}">${p.mem_pct?.toFixed(1)}%</span>
+      <button onclick="killProc(${p.pid})" style="background:rgba(255,79,64,0.15);color:var(--accent);border:none;border-radius:4px;padding:2px 8px;font-size:0.65rem;cursor:pointer">Kill</button>
+    </div>
+    `).join("")}
+  `;
+  document.getElementById("process-list").innerHTML = html;
+}
+
+async function killProc(pid) {
+  const r = await fetch(API + "/processes/" + pid + "/kill", {method: "POST"}).then(r => r.json());
+  if (r.success) loadProcesses();
+  else alert("Failed: " + r.error);
+}
+
+// ---- MEMORY ----
+async function searchMemory() {
+  const query = document.getElementById("mem-query").value;
+  if (!query) return;
+  const r = await fetch(API + "/memory/search", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({query, limit: 5}),
+  }).then(r => r.json());
+
+  const html = r.vector_results?.map(m => `
+    <div class="memory-result">
+      <div class="score">score: ${(m.score * 100).toFixed(0)}% · importance: ${m.importance}</div>
+      <div class="content">${m.content}</div>
+      <div class="meta">${JSON.stringify(m.metadata || {})}</div>
+    </div>
+  `).join("") || "<p style='color:var(--muted)'>No results</p>";
+  document.getElementById("memory-results").innerHTML = html;
+
+  const stats = await fetch(API + "/memory/stats").then(r => r.json());
+  document.getElementById("memory-count").textContent = stats.vector_entries + " total entries";
+}
+
+// ---- AGENT ----
+let sessionId = "dashboard-" + Date.now();
+async function sendChat() {
+  const input = document.getElementById("chat-input");
+  const msg = input.value.trim();
+  if (!msg) return;
+  const msgs = document.getElementById("chat-messages");
+  msgs.innerHTML += `<div class="chat-msg user"><div class="role">You</div><div class="text">${msg}</div></div>`;
+  input.value = "";
+  msgs.scrollTop = msgs.scrollHeight;
+
+  const r = await fetch(API + "/agent/message", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({session_id: sessionId, message: msg}),
+  }).then(r => r.json());
+  msgs.innerHTML += `<div class="chat-msg assistant"><div class="role">Nexus Agent_agent Agent</div><div class="text">${r.response || r.error || 'No response'}</div></div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+document.getElementById("chat-input").addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
+
+// ---- TOOLS ----
+async function loadTools() {
+  const r = await fetch(API + "/tools/list").then(r => r.json());
+  const sel = document.getElementById("tool-select");
+  r.tools.forEach(t => { const opt = document.createElement("option"); opt.value = t; opt.textContent = t; sel.appendChild(opt); });
+}
+async function executeTool() {
+  const tool = document.getElementById("tool-select").value;
+  if (!tool) return;
+  const r = await fetch(API + "/tools/execute", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({tool, args: {}}),
+  }).then(r => r.json());
+  document.getElementById("tool-output").textContent = JSON.stringify(r, null, 2);
+}
+
+// Init
+loadOverview();
+loadProcesses();
+loadTools();
+setInterval(loadOverview, 5000);
+</script>
+
+</body>
+</html>

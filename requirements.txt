@@ -1,0 +1,46 @@
+# nexus_agent Agent Requirements
+# Core
+flask>=3.0.0
+flask-cors>=4.0.0
+flask-sock>=0.6.0
+websockets>=12.0
+gevent>=24.0
+
+# Async
+aiohttp>=3.9.0
+asyncio-throttle>=1.0.0
+
+# LLM / AI
+anthropic>=0.18.0
+openai>=1.12.0
+
+# Memory
+chromadb>=0.4.22
+networkx>=3.2.1
+numpy>=1.26.0
+
+# Vision
+opencv-python>=4.9.0
+Pillow>=10.2.0
+numpy>=1.26.0
+
+# Voice
+faster-whisper>=1.0.0
+elevenlabs>=1.0.0
+
+# Windows Device Control
+psutil>=5.9.0
+pywin32>=306
+wmi>=1.5.1
+pypiwin32>=223
+
+# Telegram
+python-telegram-bot>=20.7
+
+# Utilities
+structlog>=24.1.0
+pydantic>=2.5.0
+pyyaml>=6.0.1
+httpx>=0.26.0
+rich>=13.7.0
+click>=8.1.0
